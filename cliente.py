@@ -2,28 +2,50 @@ import socket
 import random
 import time
 
-msgFromClient       = "Bladimir"
-#bytesToSend         = str.encode(msgFromClient)
-serverAddressPort   = ("127.0.0.1", 20001)
-bufferSize          = 1024
 
-for i in msgFromClient:
+##### Configuración #####
+
+# IMPORTANTE: VALIDATOR debe coincidir con el VALIDATOR del Server
+VALIDATOR = 2           # Constante de Residuo
+WAIT_TIME = 2000        # Tiempo de espera de Respuesta
+random.seed(1000)
+
+##### Funciones ##### 
+def CRC_Client(msg):
+    ascii = ord(msg)
+    return msg + str(ascii % VALIDATOR)
+
+
+def main():
+    msgFromClient       = "Bladimir"
+    #bytesToSend         = str.encode(msgFromClient)
+    serverAddressPort   = ("127.0.0.1", 20001)
+    bufferSize          = 1024
+
     # Create a UDP socket at client side
     UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+    
+    #Asignando Tiempo de Espera
+    UDPClientSocket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVTIMEO, WAIT_TIME)
 
     # Send to server using created UDP socket
-    print("Intentando enviar")
+    print("INICIANDO PROCESO DE ENVIO")
 
-    #Retardo del medio
-    retardo = random.randint(500,3000)/1000
-    time.sleep(retardo)
+    i = 0       # Puntero del caracter a enviar 
+    cont = 0    # Cantidad de Reintentos
 
-    #Perdida aleatoria de 30%
-    if (random.randint(1,100) < 30):
-        print('Me perdi, soy {caracter}'.format(caracter=i))
-    else:
-        UDPClientSocket.sendto(str.encode(i), serverAddressPort)
+    while (i < len(msgFromClient)):
+        UDPClientSocket.sendto(str.encode(CRC_Client(msgFromClient[i])), serverAddressPort)
+        try:
+            inicio = time.time()
+            msgFromServer = UDPClientSocket.recvfrom(bufferSize)
+            ACK = msgFromServer[0].decode()
+            fin = time.time()
+            print("ACK(): {msg}, Tiempo de Respuesta: {t} \n".format(msg=ACK, t = fin-inicio))
+            i += 1
+            cont = 0
+        except:
+            cont += 1
+            print("TIMEOUT. Letra : {c} , Reintento : {n}".format(c=msgFromClient[i], n = cont))
 
-    msgFromServer = UDPClientSocket.recvfrom(bufferSize)
-    msg = "Message from Server {}".format(msgFromServer[0])
-    print(msg)
+main()
